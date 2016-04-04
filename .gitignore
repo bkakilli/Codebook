@@ -1,0 +1,14 @@
+# Exclude backup files and sample video files
+*.*~
+*.avi
+
+# Exclude cmake and make related files
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+install_manifest.txt
+
+# Exclude directories
+bin
+CMakeFiles
+CMakeScripts
