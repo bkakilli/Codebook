@@ -12,3 +12,6 @@ install_manifest.txt
 bin
 CMakeFiles
 CMakeScripts
+
+# CodeBlocks files under Windows
+obj
