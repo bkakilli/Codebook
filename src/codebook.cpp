@@ -53,7 +53,7 @@ void Codebook::processFrame(Mat frame, int t, Codebook *codebooks){
 				cb->cwlist.push_back(cw);
 				cwCount++;
 			}
-			else {						// Update matched codeword 
+			else {						// Update matched codeword
 				Codeword *cw = cb->cwlist.at(matched);
 				int f = cw->f;
 				int fn = f++;
@@ -77,17 +77,17 @@ void Codebook::processFrame(Mat frame, int t, Codebook *codebooks){
 bool Codebook::isMatched( Codeword *cw, double rgb[3], double I  ) {
 	//bool colorMatch = true;
 	//bool brigthMatch = true;
-	
+
 	double xt_sqr = rgb[0]*rgb[0] + rgb[1]*rgb[1] + rgb[2]*rgb[2];
 	double vi_sqr = cw->rgb[0]*cw->rgb[0] + cw->rgb[1]*cw->rgb[1] + cw->rgb[2]*cw->rgb[2];
 	double xtvi   = rgb[0]*cw->rgb[0] + rgb[1]*cw->rgb[1] + rgb[2]*cw->rgb[2];
 	xtvi = xtvi * xtvi;
-	
+
 	double sig = sqrt(xt_sqr - xtvi/vi_sqr);
-	
+
 	double I_low = alpha*cw->maxI;
 	double I_hi = min( beta*cw->maxI, cw->minI/alpha );
-	
+
 	return sig <= eps && I_low <= I && I <= I_hi;
 }
 

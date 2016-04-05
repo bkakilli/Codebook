@@ -12,6 +12,7 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
+					<Add option="-std=c++11" />
 					<Add option="-g" />
 					<Add directory="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/include" />
 					<Add directory="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/include/opencv2" />
@@ -43,10 +44,30 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
-					<Add option="-O2" />
+					<Add option="-std=c++11" />
+					<Add option="-g" />
+					<Add directory="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/include" />
+					<Add directory="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/include/opencv2" />
 				</Compiler>
 				<Linker>
-					<Add option="-s" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_calib3d310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_core310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_features2d310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_flann310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_highgui310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_imgcodecs310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_imgproc310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_ml310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_objdetect310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_photo310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_shape310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_stitching310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_superres310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_ts310.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_video310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_videoio310.dll.a" />
+					<Add library="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib/libopencv_videostab310.dll.a" />
+					<Add directory="D:/Program Files (x86)/CodeBlocks/opencv-3.1.0/build/install/x86/mingw/lib" />
 				</Linker>
 			</Target>
 		</Build>

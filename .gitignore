@@ -15,3 +15,5 @@ CMakeScripts
 
 # CodeBlocks files under Windows
 obj
+Codebook.layout
+Codebook.depend
