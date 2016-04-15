@@ -1,6 +1,7 @@
 # Exclude backup files and sample video files
 *.*~
 *.avi
+*.cbf
 
 # Exclude cmake and make related files
 CMakeCache.txt

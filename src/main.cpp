@@ -4,18 +4,32 @@
 #include <vector>
 #include <chrono>
 #include <thread>
+#include <signal.h>
+#include <cstdlib>
 #include "codebook.h"
 
 using namespace cv;
 using namespace std;
+typedef Codebook::RunMode RunMode;
 
-int		Codebook::cwCount = 0;
-double	Codebook::alpha = 0.5;
-double	Codebook::beta = 1.2;
-double	Codebook::eps = 5;
+Codebook*   Codebook::codebooks;
+RunMode     Codebook::mode;     // 0 playing, 1 training
+int		    Codebook::cwCount = 0;
+int         Codebook::width;
+int         Codebook::height;
+float	    Codebook::alpha = 0.5;
+float	    Codebook::beta = 1.2;
+float	    Codebook::eps = 5;
+bool        interruptSignal = false;
+
+void interruptHandler(int){
+    cout << "\n\nInterrupt caled." << endl;
+    interruptSignal = true;
+}
 
 int main(int argc, char* argv[])
 {
+    signal(SIGINT,&interruptHandler);
 
 	if(argc < 2){
 		cout << "Invalid input." << endl;
@@ -42,34 +56,42 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
+    Codebook::width = (int) cap.get(CV_CAP_PROP_FRAME_WIDTH);
+    Codebook::height = (int) cap.get(CV_CAP_PROP_FRAME_HEIGHT);
+    int frameCount = (int) cap.get(CV_CAP_PROP_FRAME_COUNT);
+
 	//cap.set(CV_CAP_PROP_POS_MSEC, 300); //start the video at 300ms
 	Mat frame;
 
 	if (train) {
 
-		int width = (int) cap.get(CV_CAP_PROP_FRAME_WIDTH);
-		int height = (int) cap.get(CV_CAP_PROP_FRAME_HEIGHT);
-		int frameCount = (int) cap.get(CV_CAP_PROP_FRAME_COUNT);
+        Codebook::mode = Codebook::TRAIN;
 
 		// Create codebooks
-		Codebook *codebooks = new Codebook[ width*height ];
+		Codebook::codebooks = new Codebook[ Codebook::width*Codebook::height ];
 
 		int frameNumber = 0;
 		// Read until stream ends
-		while(cap.read(frame)) {
+		while(cap.read(frame) && !interruptSignal && frameNumber < 100) {
 
 			frameNumber++;
-			Codebook::processFrame(frame, frameNumber, codebooks);
+			Codebook::processFrame(frame, frameNumber);
 			int perc = (int) (100*frameNumber/frameCount);
 			cout << "\rProgress: " << perc << "%. Total codeword count = " << Codebook::cwCount << flush;
 
 		}
 		cout << "\n";
+		if(!interruptSignal)
+            Codebook::save("default.cbf");
 
-		delete [] codebooks;
-
+		delete [] Codebook::codebooks;
+        cout << "Memory cleanup done." << endl;
+        cout << "Press enter to quit." << endl;
+        cin.get();
 	}
 	else {
+
+        Codebook::mode = Codebook::PLAY;
 
 		double fps = cap.get(CV_CAP_PROP_FPS); //get the frames per seconds of the video
 		double period_us = 1000000/fps;
@@ -85,7 +107,7 @@ int main(int argc, char* argv[])
 
 		namedWindow("Background Substraction",CV_WINDOW_AUTOSIZE); //create a window called "MyVideo"
 		// Read until stream ends
-		while(cap.read(frame)) {
+		while(cap.read(frame) && !interruptSignal) {
 
 			imshow("Background Substraction", frame);
 			if(waitKey(waitKeyDur) == 27) {
