@@ -10,7 +10,9 @@ Build and install OpenCV 3.1
 clone repo to $CodebookPath
 
 > cd CodebookPath
+>
 > cmake .
+>
 > make
 
 Binary is created in $CodebookPath/bin
