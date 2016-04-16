@@ -4,28 +4,36 @@
 #include <cmath>
 #include <algorithm>
 #include <fstream>
+#include <sys/stat.h>
 
 using namespace cv;
 using namespace std;
+
+typedef struct{
+    unsigned short w;
+    unsigned short h;
+    float rgb[3];
+    float minI;
+    float maxI;
+    int f;
+    int l;
+    int p;
+    int q;
+} Codeword;
+
+typedef struct{
+    unsigned short width;
+    unsigned short height;
+    float eps;
+    float alpha;
+    float beta;
+    int cwCount;
+} CBFHeader;
 
 class Codebook {
 
 	public:
     enum RunMode {PLAY=0, TRAIN};
-
-	typedef struct{
-		float rgb[3];
-		float minI;
-		float maxI;
-		int f;
-		int l;
-		int p;
-		int q;
-		unsigned short w;
-		unsigned short h;
-	} Codeword;
-
-
 	vector<Codeword *> cwlist;
 	~Codebook();
 
@@ -37,9 +45,16 @@ class Codebook {
 	static float eps;
 	static float alpha;
 	static float beta;
+	static string fileName;
+	static unsigned char *outputFrameBytes;
+	static void initCodebooks(RunMode mode);
+	static void endCodebooks();
 	static void processFrame(Mat frame, int t);
 	static bool isMatched( Codeword *cw, float rgb[3], float I  );
-	static void save(string fileName);
-	static void load(string fileName);
+	static void wrapCodebooks();
+	static bool fileExists(string fileName);
+	static void save();
+	static void load();
+	static void load(string fn);
 
 };
