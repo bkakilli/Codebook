@@ -1,20 +1,30 @@
 #include "codebook.h"
 
 Codebook::~Codebook(){
+    /*Codeword* cw;
+    cw = this->cwlist.at(0);
+    int r=cw->row;
+    int c=cw->col;
+    if(r > 280)
+        cout << r << "x" << c << endl;*/
 	for(unsigned int i=0; i<cwlist.size(); i++)
 		delete cwlist.at(i);
+    /*if(r > 280)
+        cout << r << "x" << c << endl;*/
 }
 
-void Codebook::initCodebooks(RunMode m) {
+bool Codebook::initCodebooks(RunMode m) {
+    bool ret = true;
     mode = m;
     codebooks = new Codebook[ width*height ];
     if(mode == PLAY) {
-        load();
         outputFrameBytes = new uint8_t[ width*height ];
+        ret = load();
     }
+    return ret;
 }
 
-void Codebook::endCodebooks() {
+void Codebook::clearCodebooks() {
     delete [] codebooks;
     if(mode == PLAY) {
 		delete [] outputFrameBytes;
@@ -25,8 +35,8 @@ void Codebook::processFrame(uint8_t* frameBytes, uint16_t t){
 
     int rawPixel = 0;
 	// Get height and weight from frame
-	for(int y=0; y<height; y++) {			// Run the algorithm for each pixel
-		for(int x=0; x<width; x++) {
+	for(int r=0; r<height; r++) {			// Run the algorithm for each pixel
+		for(int c=0; c<width; c++) {
 
 			// Get codebook of current pixel
 			Codebook *cb;
@@ -38,10 +48,7 @@ void Codebook::processFrame(uint8_t* frameBytes, uint16_t t){
 			rgb[0] = frameBytes[rawChannel+2];
 			rgb[1] = frameBytes[rawChannel+1];
 			rgb[2] = frameBytes[rawChannel+0];
-			/*
-			rgb[0] = frame.at<Vec3b>(y, x)[2];
-			rgb[1] = frame.at<Vec3b>(y, x)[1];
-			rgb[2] = frame.at<Vec3b>(y, x)[0];*/
+
 
             // Calculate the brightness
             //float I = sqrt(rgb[0]*rgb[0] + rgb[1]*rgb[1] + rgb[2]*rgb[2]);
@@ -80,8 +87,8 @@ void Codebook::processFrame(uint8_t* frameBytes, uint16_t t){
                     cw->p       = t;
                     cw->q       = t;
 
-                    cw->w = x;
-                    cw->h = y;
+                    cw->col = c;
+                    cw->row = r;
                     cb->cwlist.push_back(cw);
                     cwCount++;
                 }
@@ -95,13 +102,14 @@ void Codebook::processFrame(uint8_t* frameBytes, uint16_t t){
                     cw->minI = min(cw->minI, I);
                     cw->maxI = min(cw->maxI, I);
                     cw->f = fn;
-                    unsigned short temp = t-cw->q;
+                    uint16_t temp = t-cw->q;
                     cw->l = max(cw->l, temp);
                     //cw->p = cw->p;	// Redundant
                     cw->q = t;
                 }
             }
-            rawPixel++;
+
+            rawPixel++; // rawPixel = r*width+c + 1;
 		}
 	}
 
@@ -115,7 +123,7 @@ void Codebook::applyMNRL(){
 			cb = codebooks+y*width+x;
             for(uint32_t i=0; i<cb->cwlist.size(); i++) {
                 Codeword *cw = cb->cwlist.at(i);
-                unsigned short temp = frameCount - cw->q + cw->p - 1;
+                uint16_t temp = frameCount - cw->q + cw->p - 1;
                 cw->l = max(cw->l, temp);
             }
 		}
@@ -143,31 +151,29 @@ bool Codebook::fileExists (string filename) {
   return (stat (filename.c_str(), &buffer) == 0);
 }
 
-void Codebook::save() {
-
-    cout << "Saving into file " << fileName << endl;
+bool Codebook::save() {
 
     FILE *ptr_fp;
 
     if( (ptr_fp = fopen(fileName.c_str(), "wb")) == NULL ) {
-        printf("Unable to open file!\n");
-        exit(1);
+        printf("Error: Unable to open file!\n");
+        return false;
     }
 
 	Codebook    *cb;
 	Codeword    *cw;
 	CBFHeader   *header = new CBFHeader;
 
-	header->width   = (unsigned short) width;
-	header->height  = (unsigned short) height;
+	header->width   = width;
+	header->height  = height;
 	header->alpha   = alpha;
 	header->beta    = beta;
 	header->eps     = eps;
 	header->cwCount = cwCount;
 
     if( fwrite(header, sizeof(CBFHeader), 1, ptr_fp) != 1) {
-        printf("Write error!\n");
-        exit(1);
+        printf("Error: Write error!\n");
+        return false;
     }
 
 	// Get codebook of current pixel
@@ -175,12 +181,12 @@ void Codebook::save() {
 	for(int y=0; y<height; y++) {
 		for(int x=0; x<width; x++) {
 			cb = codebooks+y*width+x;
-			for( unsigned int i=0; i<cb->cwlist.size(); i++ ) {
+			for( uint32_t i=0; i<cb->cwlist.size(); i++ ) {
 
                 cw = cb->cwlist.at(i);
                 if( fwrite(cw, sizeof(Codeword), 1, ptr_fp) != 1) {
-                    printf("Write error!\n");
-                    exit(1);
+                    printf("Error: Write error!\n");
+                    return false;
                 }
 			}
 		}
@@ -188,24 +194,24 @@ void Codebook::save() {
     fclose(ptr_fp);
 
     delete header;
-    cout << "Binary saved." << fileName << endl;
+    cout << "Saved into file " << fileName << endl;
 
+    return true;
 }
 
-void Codebook::load() {
+bool Codebook::load() {
 
     cout << "Loading from file " << fileName << endl;
 
     FILE *ptr_fp;
 
     if( (ptr_fp = fopen(fileName.c_str(), "rb")) == NULL ) {
-        printf("Unable to open file!\n");
-        endCodebooks();
-        exit(1);
+        printf("Error: Unable to open file!\n");
+        return false;
     }
 
     fseek(ptr_fp,0,SEEK_END);
-    unsigned int fsize = ftell(ptr_fp);
+    uint32_t fsize = ftell(ptr_fp);
     fseek(ptr_fp,0,SEEK_SET);
 
     CBFHeader * header = new CBFHeader;
@@ -217,27 +223,29 @@ void Codebook::load() {
     width   = header->width;
 
     if (fsize != sizeof(CBFHeader)+sizeof(Codeword)*cwCount) {
-        printf("File is corrupted!\n");
+        printf("Error: File is corrupted!\n");
+        return false;
     }
     else {
 
         Codebook *cb;
-
         while(!feof(ptr_fp)){
             Codeword * cw = new Codeword;
-            fread ( cw, sizeof(Codeword), 1, ptr_fp );
-
-            cb = codebooks+cw->h*width+cw->w;
+            if(!fread ( cw, sizeof(Codeword), 1, ptr_fp ))
+                break;
+            cb = codebooks+cw->row*width+cw->col;
             cb->cwlist.push_back(cw);
         }
 
     }
     delete header;
     fclose(ptr_fp);
+
+    return true;
 }
 
-void Codebook::load(string fn) {
+bool Codebook::load(string fn) {
     fileName = fn;
-    load();
+    return load();
 }
 

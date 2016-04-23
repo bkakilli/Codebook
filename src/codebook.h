@@ -9,8 +9,8 @@ using namespace std;
 
 // 32 byte sized codeword
 typedef struct{
-    uint16_t w;
-    uint16_t h;
+    uint16_t col;
+    uint16_t row;
     uint16_t f;
     uint16_t l;
     uint16_t p;
@@ -32,8 +32,8 @@ typedef struct{
 class Codebook {
 
 	public:
-    enum RunMode {PLAY=0, TRAIN};
 	vector<Codeword *> cwlist;
+    enum RunMode {PLAY=0, TRAIN};
 	~Codebook();
 
 	static Codebook *codebooks;
@@ -48,14 +48,14 @@ class Codebook {
 	static uint16_t frameCount;
 	static uint8_t* outputFrameBytes;
 
-	static void initCodebooks(RunMode mode);
-	static void endCodebooks();
-	static void processFrame(uint8_t* frameBytes, unsigned short  t);
+	static bool initCodebooks(RunMode mode);
+	static void clearCodebooks();
+	static void processFrame(uint8_t* frameBytes, uint16_t  t);
 	static void applyMNRL();
 	static bool isMatched( Codeword* cw, float rgb[3], float I  );
 	static bool fileExists(string fileName);
-	static void save();
-	static void load();
-	static void load(string fn);
+	static bool save();
+	static bool load();
+	static bool load(string fn);
 
 };

@@ -1,19 +1,10 @@
 #include "opencv2/opencv.hpp"
-#include "opencv2/imgproc.hpp"
-#include "opencv2/highgui.hpp"
-#include <iostream>
-#include <sstream>
 #include <iomanip>
 #include <string>
 #include <vector>
-#include <chrono>
-#include <thread>
 #include <signal.h>
-#include <cstdlib>
+#include <dirent.h>
 #include "codebook.h"
-
-#include <cmath>
-#include <algorithm>
 
 using namespace cv;
 using namespace std;
@@ -27,33 +18,106 @@ int         Codebook::height;
 float	    Codebook::alpha = 0.5;
 float	    Codebook::beta = 1.4;
 float	    Codebook::eps = 20;
-string      Codebook::fileName;
+string      Codebook::fileName = "";
 unsigned short Codebook::frameCount;
 unsigned char* Codebook::outputFrameBytes;
-bool        interruptSignal = false;
+bool        endProgram = false;
 bool        morphOn = false;
 int         seDefaultSize=1;
-int         separation;
+int         trainPerc = 50;
+int         firstFrame;
+int         lastFrame;
 uint8_t*    tempArray;
+vector<string> fileList;
+int         frameCount;
+int         frameNumber = 0;
+int         sourceType;
+int         morphType = 3;
+VideoCapture cap;
+bool train = false;
 
 void signalHandler(int signum){
     cout << "\nStopping..." << endl;
-    interruptSignal = true;
+    endProgram = true;
 }
 
 void applyMorphology(Mat src, Mat dst, int seSize=seDefaultSize) {
-
     Mat se = getStructuringElement( MORPH_ELLIPSE, Size( 2*seSize + 1, 2*seSize+1 ), Point( seSize, seSize ) );
-    morphologyEx(src, dst, MORPH_CLOSE, se);
+    morphologyEx(src, dst, morphType, se);
+}
 
+bool initSource(string source) {
+
+    DIR *dir;
+    struct dirent *ent;
+
+    if ((dir = opendir (source.c_str())) != NULL) {   // Folder
+        sourceType = 1;
+        if (source.at(source.size()-1) != '/' && source.at(source.size()-1) != '\\')
+            source = source + "/";
+        frameCount=0;
+        while ((ent = readdir (dir)) != NULL ) {
+            fileList.push_back(source+ent->d_name);
+            frameCount++;
+        }
+        closedir (dir);
+        fileList.erase(fileList.begin(), fileList.begin()+2); // Remove . and ..
+        frameCount -= 2;
+
+        Mat frame = imread(fileList.at(0), CV_LOAD_IMAGE_COLOR);
+        Codebook::width = frame.cols;
+        Codebook::height = frame.rows;
+
+    }
+    else {              // Video or device
+        if(!cap.open(source))
+            return false;
+        sourceType = 2;
+        frameCount = cap.get(CV_CAP_PROP_FRAME_COUNT);
+        Codebook::width = cap.get(CV_CAP_PROP_FRAME_WIDTH);
+        Codebook::height = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
+    }
+
+    Codebook::frameCount = frameCount;
+
+    if(train) {
+        firstFrame = 0;
+        lastFrame = frameCount*trainPerc/100;
+    }
+    else {
+        firstFrame = frameCount*trainPerc/100;
+        lastFrame = frameCount;
+    }
+
+    cap.set(CV_CAP_PROP_POS_FRAMES, firstFrame);
+    frameNumber = firstFrame;
+
+    return true;
+}
+
+bool getNext(Mat& frame) {
+
+    try {
+        if ( frameNumber<lastFrame ){
+            if (sourceType==1 )
+                frame = imread(fileList.at(frameNumber).c_str(), CV_LOAD_IMAGE_COLOR);
+            else {
+                if(!cap.read(frame))
+                    return false;
+            }
+            frameNumber++;
+
+            return true;
+        }
+    } catch (int e) {
+        cout << "Error!" << endl;
+        endProgram = true;
+    }
+    return false;
 }
 
 int main(int argc, char* argv[])
 {
-    //Codebook::load("default.cbf");
-    //delete Codebook::codebooks;
-    //return 0;
-
     signal(SIGINT,signalHandler);
 
 	if(argc < 3){
@@ -61,12 +125,16 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	string type = argv[1];
-	separation = atof((argv[2]));
-	if(!separation){
-		cout << "Enter a valid separation percentage." << endl;
-		return -1;
+	train = false;
+	if( !strcmp(argv[2], "t") ){
+		train = true;
+	} else if( !strcmp(argv[2], "p") ){
+		train = false;
+	} else {
+		cout << "Specify the mode (t for training, p for playing)." << endl;
+		return -3;
 	}
+
 	int ai=3;
 	while (ai<argc-1) {
         double temp = atof(argv[ai+1]);
@@ -86,89 +154,68 @@ int main(int argc, char* argv[])
         }
         else if ( !strcmp( argv[ai], "-e" ) ) {
             if(temp==0.0){
-                cout << "Enter a valid epsilon." << endl;
+                cout << "Error: Enter a valid epsilon." << endl;
                 return -1;
             }
             Codebook::eps = temp;
         }
         else if ( !strcmp( argv[ai], "-se" ) ) {
             if(temp==0.0){
-                cout << "Enter a se size." << endl;
+                cout << "Error: Enter a valid structuring element size." << endl;
                 return -1;
             }
             seDefaultSize = temp;
         }
+        else if ( !strcmp( argv[ai], "-s" ) ) {
+            trainPerc = temp;
+        }
         else if ( !strcmp( argv[ai], "-m" ) ) {
+            if(temp==0.0){
+                cout << "Error: Enter a valid morphology type. (1,2,3,4)" << endl;
+                return -1;
+            }
+            morphType = temp-1;
             morphOn = true;
+        }
+        else if ( !strcmp( argv[ai], "-f" ) ) {
+            Codebook::fileName = argv[ai+1];
         }
         ai++;
 	}
-	cout    << "Alpha: " << Codebook::alpha
-            << ". Beta: " << Codebook::beta
-            << ". Epsilon: " << Codebook::eps << "." << endl;
+	if (train)
+        cout    << "Alpha: " << Codebook::alpha << ", "
+                << "Beta: " << Codebook::beta << ", "
+                << "Epsilon: " << Codebook::eps << endl
+                << "Destination file: " << Codebook::fileName << endl;
 
-	bool train = false;
-	if(type == "t"){
-		train = true;
-	} else if (type == "p"){
-		train = false;
-	} else {
-		cout << "Unknown parameter; use either t or p." << endl;
-		return -1;
-	}
+    if (!initSource(argv[1])) {
+        cout << "Invalid source folder or video file" << endl;
+        return -2;
+    }
+    //endProgram = true;
 
-	/*VideoCapture cap(videoFile); // open the video file for reading
-
-	if ( !cap.isOpened() ) { // if not success, exit program
-		cout << "Cannot open the video file" << endl;
-		return -1;
-	}
-
-    Codebook::width = (int) cap.get(CV_CAP_PROP_FRAME_WIDTH);
-    Codebook::height = (int) cap.get(CV_CAP_PROP_FRAME_HEIGHT);
-    Codebook::fileName = "default.cbf";
-    int frameCount = (int) cap.get(CV_CAP_PROP_FRAME_COUNT);
-    */
-
-    tempArray = new uint8_t[ 288*384 *3];
-	Mat frame;
-    stringstream ss;
-    ss << "video/PetsD2TeC1_" << setw(5) << setfill('0') << 0 << ".jpg";
-    frame = imread(ss.str().c_str(), CV_LOAD_IMAGE_COLOR);
-
-    Codebook::width = frame.cols;
-    Codebook::height = frame.rows;
-    Codebook::fileName = "default.cbf";
-    int frameCount = 2824;
-    separation = frameCount*separation/100;
-    Codebook::frameCount = frameCount;
-
-	//cap.set(CV_CAP_PROP_POS_MSEC, 300); //start the video at 300ms
-
+    Mat frame;
 	if (train) {
         time_t start = time(0);
-        Codebook::initCodebooks(Codebook::TRAIN);
 
-        int frameNumber = 0;
-		while(!interruptSignal && frameNumber<separation) {
+        if (!Codebook::initCodebooks(Codebook::TRAIN))
+            endProgram = true;
 
-			stringstream ss;
-            ss << "video/PetsD2TeC1_" << setw(5) << setfill('0') << frameNumber << ".jpg";
-            frame = imread(ss.str().c_str(), CV_LOAD_IMAGE_COLOR);
-			frameNumber++;
-			/*Mat testFrame(Codebook::height, Codebook::width, CV_8UC3, frame.data);
-            imshow("test2",testFrame);
-            waitKey(1);*/
-			Codebook::processFrame(frame.data, frameNumber);
+        int t=0;
+		while( getNext(frame) && !endProgram) {
 
-			int perc = (int) (100*frameNumber/separation);
+			t++;
+			Codebook::processFrame(frame.data, t);
+
+			int perc = (int) (100*t/(lastFrame-firstFrame));
 			cout << "\rProgress: " << perc << "%. Total codeword count = " << Codebook::cwCount << flush;
 
 		}
-        Codebook::applyMNRL();
 		cout << "\n";
-		if(!interruptSignal)
+		if(!endProgram) {
+            Codebook::applyMNRL();
             Codebook::save();
+		}
 
 		time_t difference = time(0) - start ;
 		cout << "Average codeword count: " << Codebook::cwCount/(Codebook::width * Codebook::height) << endl;
@@ -177,31 +224,19 @@ int main(int argc, char* argv[])
 	}
 	else {
 
-        Codebook::initCodebooks(Codebook::PLAY);
+        if (!Codebook::initCodebooks(Codebook::PLAY))
+            endProgram = true;
 
-		/*
-		double fps = 25;//cap.get(CV_CAP_PROP_FPS); //get the frames per seconds of the video
-		double period_us = 1000000/fps;
-		int waitKeyDur = 1;//(int) (period_us/1000-20);
-		cout << "Frame per seconds: " << fps << endl;
-		cout << "Period in usecs: " << period_us << endl;
-
-		#ifdef _WIN32
-        #else
-        chrono::steady_clock::time_point next = chrono::steady_clock::now();
-        period_us = 10;
-        #endif
-        */
+        if(getNext(frame)) {
+            if(frame.rows != Codebook::height || frame.cols != Codebook::width) {
+                cout << "Error: Given video and codebook file do not match." << endl;
+                endProgram = true;
+            }
+        }
 
 		namedWindow("Background Substraction", CV_WINDOW_AUTOSIZE);
-        int frameNumber = separation;
 
-		while(frameNumber<frameCount && !interruptSignal) {
-
-			stringstream ss;
-            ss << "video/PetsD2TeC1_" << setw(5) << setfill('0') << frameNumber << ".jpg";
-            frame = imread(ss.str().c_str(), CV_LOAD_IMAGE_COLOR);
-			frameNumber++;
+		while(getNext(frame) && !endProgram) {
 
             Codebook::processFrame(frame.data, 0);
             Mat foreground(frame.size(), CV_8U, Codebook::outputFrameBytes);
@@ -209,30 +244,20 @@ int main(int argc, char* argv[])
                 applyMorphology(foreground, foreground);
 
 			imshow("Background Substraction", foreground);
-			waitKey(1);
-			/*
-			if(waitKey(waitKeyDur) == 27) {
-				cout << "esc key is pressed by user" << endl;
-				break;
+			if(waitKey(1) == 'c'){
+                stringstream ss;
+                ss << "snapshots/" << Codebook::fileName << "_cap" << frameNumber << ".jpg";
+                imwrite(ss.str(), foreground);
 			}
-
-            #ifdef _WIN32
-            #else
-			// Accurate timing
-			this_thread::sleep_until(next);
-			next = next + chrono::microseconds((int) period_us - 10000);
-            #endif
-            */
 		}
-
 	}
-    //cap.release();
-    Codebook::endCodebooks();
-    if (interruptSignal) {
+
+    Codebook::clearCodebooks();
+    if (endProgram) {
         cout << "\nProcess terminated." << endl;
         //cin.get();
     }
 
-            delete [] tempArray;
+    cap.release();
 	return 0;
 }

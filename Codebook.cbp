@@ -11,7 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="sample.avi p" />
+				<Option parameters="video p -f video-s10-a0.7-b1.5-e10.cbf -s 99" />
 				<Compiler>
 					<Add option="-std=c++11" />
 					<Add option="-g" />
